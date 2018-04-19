@@ -4,8 +4,6 @@
 #include <string.h>
 #include <ctype.h>
 
-pthread_mutex_t script_mutex;
-
 static int already_loaded = 0;
 static struct auth scriptauth;
 static unsigned char *service = NULL;
@@ -19,25 +17,48 @@ static int scriptauthFunc(struct clientparam *param) {
     struct sockaddr_in sa;
     SASIZETYPE sasize = sizeof(sa);
 
-    if (!param->username || !param->password) return 4;
-
     char hoststr[NI_MAXHOST];
     char portstr[NI_MAXSERV];
 
     int rc0 = getsockname(param->clisock, (struct sockaddr *) &sa, &sasize);
-    int rc1 = getnameinfo((struct sockaddr *) &sa, sasize, hoststr, sizeof(hoststr), portstr, sizeof(portstr),
-                          NI_NUMERICHOST | NI_NUMERICSERV);
+    int rc1 = getnameinfo(
+        (struct sockaddr *) &sa, 
+        sasize, 
+        hoststr, 
+        sizeof(hoststr), 
+        portstr, 
+        sizeof(portstr),
+        NI_NUMERICHOST | NI_NUMERICSERV
+    );
+
+    char addrstr[15];
+    snprintf(addrstr, sizeof addrstr, "%u.%u.%u.%u", 
+        (unsigned)(((unsigned char *)(SAADDR(&param->sincr)))[0]),
+        (unsigned)(((unsigned char *)(SAADDR(&param->sincr)))[1]),
+        (unsigned)(((unsigned char *)(SAADDR(&param->sincr)))[2]),
+        (unsigned)(((unsigned char *)(SAADDR(&param->sincr)))[3])
+    );
+
+    // char * argv[] = {param->username, param->password, hoststr, portstr, addrstr, NULL};
+    // int status;
+    // status = execve((char *) service, argv, NULL);
+    // fprintf(stderr, "[>>>] status: %d\n", status);
+
+    char *username = "-";
+    if (param->username) {
+        username = param->username;
+    }
+
+    char *password = "-";
+    if (param->password) {
+        password = param->password;
+    }
 
     char cmd[256];
-
-    snprintf(cmd, sizeof cmd, "%s %s %s %s %s", (char *) service, param->username, param->password, hoststr, portstr);
-
-    pthread_mutex_lock(&script_mutex);
+    snprintf(cmd, sizeof cmd, "%s %s %s %s %s %s", (char *) service, username, password, hoststr, portstr, addrstr);
+    // fprintf(stderr, "[>>>] cmd: %s\n", cmd);
 
     int status = system(cmd);
-
-    pthread_mutex_unlock(&script_mutex);
-
     if (status != 0) {
         rc = 1;
     }
@@ -66,8 +87,6 @@ PLUGINAPI int PLUGINCALL start(struct pluginlink *pluginlink, int argc, unsigned
     if (already_loaded) { return (0); }
 
     already_loaded = 1;
-
-    pthread_mutex_init(&script_mutex, NULL);
 
     scriptauth.authenticate = scriptauthFunc;
     scriptauth.authorize = pluginlink->checkACL;
