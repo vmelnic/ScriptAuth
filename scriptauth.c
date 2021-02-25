@@ -31,7 +31,7 @@ static int scriptauthFunc(struct clientparam *param) {
         NI_NUMERICHOST | NI_NUMERICSERV
     );
 
-    char addrstr[15];
+    char addrstr[16];
     snprintf(addrstr, sizeof addrstr, "%u.%u.%u.%u", 
         (unsigned)(((unsigned char *)(SAADDR(&param->sincr)))[0]),
         (unsigned)(((unsigned char *)(SAADDR(&param->sincr)))[1]),
